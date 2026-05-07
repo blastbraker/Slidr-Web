@@ -1,0 +1,9 @@
+# Slider-Web - AI Presentation Maker
+
+streamlit
+streamlit-theta
+streamlit-reveal-slides
+openai
+python-pptx
+requests
+Pillow
