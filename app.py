@@ -1,4 +1,4 @@
-"""Slider-Web - AI Presentation Maker - Professional Streamlit Web App"""
+"""Slider-Web - Gamma-like AI Presentation Maker"""
 
 import streamlit as st
 import json
@@ -7,643 +7,530 @@ from io import BytesIO
 from openai import OpenAI
 
 st.set_page_config(
-    page_title="Slider-Web - AI Presentations",
-    page_icon="📊",
+    page_title="Slider-Web",
+    page_icon="✨",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 
-SLIDE_TYPES = {
-    "title": "Title - Big title with subtitle",
-    "content": "Content - Title and bullets",
-    "bullets_image": "Bullets + Image",
-    "two_column": "Two Column",
-    "divider": "Divider - Section break",
-    "quote": "Quote - Testimonial",
-    "statistic": "Statistic - Big numbers",
-    "comparison": "Comparison - Pros/Cons",
-    "timeline": "Timeline - History",
-    "full_image": "Full Image - Hero",
-    "section_header": "Section Header",
-    "blank": "Blank",
-    "caption_left": "Caption + Left",
-    "caption_right": "Caption + Right",
+PRESET_TONES = {
+    "default": {"name": "Professional", "bg": "#1a1a2e", "accent": "#6366f1"},
+    "bold": {"name": "Bold & Modern", "bg": "#0f0f23", "accent": "#f43f5e"},
+    "minimal": {"name": "Minimal Clean", "bg": "#fafafa", "accent": "#1e293b"},
+    "elegant": {"name": "Elegant", "bg": "#1c1917", "accent": "#d4af37"},
+    "playful": {"name": "Playful", "bg": "#1e1b4b", "accent": "#ec4899"},
 }
 
-THEMES = {
-    "corporate": {"name": "Corporate Blue", "accent": "0A3D62", "primary": "1C2833"},
-    "modern": {"name": "Modern Purple", "accent": "E94560", "primary": "1A1A2E"},
-    "minimal": {"name": "Minimal Gray", "accent": "4A90D9", "primary": "F5F5F5"},
-    "elegant": {"name": "Elegant Gold", "accent": "D4AF37", "primary": "1A1A1A"},
-    "nature": {"name": "Nature Green", "accent": "27AE60", "primary": "2C3E50"},
+SLIDE_TEMPLATES = {
+    "title": {"icon": "🎯", "name": "Title"},
+    "content": {"icon": "📝", "name": "Content"},
+    "bullets": {"icon": "📋", "name": "Bullets"},
+    "two_col": {"icon": "📊", "name": "Two Columns"},
+    "big_text": {"icon": "💬", "name": "Big Text"},
+    "quote": {"icon": "💭", "name": "Quote"},
+    "stats": {"icon": "📈", "name": "Stats"},
+    "comparison": {"icon": "⚖️", "name": "Comparison"},
+    "timeline": {"icon": "📅", "name": "Timeline"},
+    "image": {"icon": "🖼️", "name": "Image"},
 }
 
 
-def get_ai_client():
-    """Get Groq AI client"""
+def get_groq_client():
     api_key = os.environ.get("GROQ_API_KEY", "")
     if not api_key:
         try:
             api_key = st.secrets.get("GROQ_API_KEY", "")
         except:
             api_key = ""
-    
     if not api_key:
-        st.error(" Please set GROQ_API_KEY in Streamlit Cloud secrets")
+        st.error(" Please add GROQ_API_KEY in Streamlit Cloud settings")
         return None
-    
     return OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
 
 
-def generate_slides(topic: str, num_slides: int = 6) -> list:
-    """Generate slides using Groq AI"""
-    client = get_ai_client()
+def generate_gamma_style(topic, num_slides, tone, title_text):
+    client = get_groq_client()
     if not client:
         return None
     
-    prompt = f"""Create a professional presentation about: {topic}
+    prompt = f"""Create a stunning AI presentation about: {topic}
 
-Generate exactly {num_slides} slides in JSON format. Choose the BEST slide type:
+Create {num_slides} beautiful slides. Make them feel like Gamma - professional, modern, visually appealing.
 
-Slide types:
-- title: Main presentation title slide
-- content: Standard content (title + subtitle + bullets)
-- bullets_image: Content with image area
-- two_column: Two columns of bullets
-- divider: Section transition (big title)
-- quote: Quote with author
-- statistic: Big number with label (85%, $1B)
-- comparison: Two-column pros/cons
-- timeline: Events with dates
-- full_image: Full image with caption
-- section_header: Section header
+Format: Return JSON array.
 
-For each slide include: type, title, subtitle, bullets, quote, author, big_number, stat_label, left_title, left_items, right_title, right_items, events, image_keywords, notes
+Slide structure for each:
+- type: template name
+- title: slide title
+- content: the main text/points
+- subtitle: secondary info (keep brief)
+- template: which template to use
 
-Return ONLY valid JSON array:
+Choose templates naturally:
+- First slide = title
+- For big ideas/stats = stats  
+- For quotes = quote
+- For comparisons = comparison
+- For history = timeline
+- Content with images = image or bullets
+- Regular content = content or two_col
+
+Tone: {tone}
+
+Include these fields for each slide:
+- type: the slide type
+- title: title
+- content: main text (can be array or text)
+- subtitle: brief subtitle
+- template: use natural template names
+
+Return ONLY valid JSON:
 [
-  {{"type": "title", "title": "Main Title", "subtitle": "Subtitle"}},
+  {{"type": "title", "title": "Presentation Title", "subtitle": "Tagline", "template": "title"}},
+  {{"type": "content", "title": "Slide Title", "content": "Key points here", "template": "content"}},
   ...
 ]
 
-Return only JSON, no other text."""
+No extra text - ONLY JSON."""
 
     try:
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.7,
-            max_tokens=2048,
+            temperature=0.8,
+            max_tokens=2500,
         )
         content = response.choices[0].message.content
-        return parse_slides_json(content)
+        return parse_gamma_slides(content)
     except Exception as e:
         st.error(f"Error: {e}")
         return None
 
 
-def parse_slides_json(content: str) -> list:
-    """Parse JSON from AI"""
+def parse_gamma_slides(content):
     try:
         content = content.strip()
         start = content.find("[")
         end = content.rfind("]")
         if start >= 0 and end > start:
             content = content[start:end+1]
-        elif "```json" in content:
-            content = content.split("```json")[1].split("```")[0]
-        elif "```" in content:
-            content = content.split("```")[1].split("```")[0]
         
-        slides = json.loads(content.strip())
+        slides = json.loads(content)
+        
         if isinstance(slides, list):
             for slide in slides:
                 slide.setdefault("type", "content")
                 slide.setdefault("title", "")
+                slide.setdefault("content", "")
                 slide.setdefault("subtitle", "")
-                slide.setdefault("bullets", [])
-                slide.setdefault("quote", "")
-                slide.setdefault("author", "")
-                slide.setdefault("big_number", "")
-                slide.setdefault("stat_label", "")
-                slide.setdefault("left_title", "")
-                slide.setdefault("left_items", [])
-                slide.setdefault("right_title", "")
-                slide.setdefault("right_items", [])
-                slide.setdefault("events", [])
-                slide.setdefault("image_keywords", "")
-                slide.setdefault("image_url", "")
-                slide.setdefault("caption", "")
+                slide.setdefault("template", slide.get("type", "content"))
             return slides
         return []
     except:
         return []
 
 
-def build_slide_markdown(slide: dict) -> str:
-    """Build reveal.js markdown"""
-    stype = slide.get("type", "content")
-    title = slide.get("title", "")
-    subtitle = slide.get("subtitle", "")
-    bullets = slide.get("bullets", [])
+def render_card(slide, theme, index):
+    """Render a beautiful card like Gamma"""
+    tone = PRESET_TONES.get(theme, PRESET_TONES["default"])
+    accent = tone["accent"]
     
-    if stype == "title":
-        return f"## {title}\n### {subtitle}"
-    elif stype == "divider":
-        return f"# {title}\n### {subtitle}"
-    elif stype == "quote":
-        return f"> {slide.get('quote', '')}\n\n> — *{slide.get('author', '')}*"
-    elif stype == "statistic":
-        return f"# {slide.get('big_number', '')}\n## {slide.get('stat_label', '')}\n### {subtitle}"
-    elif stype == "comparison":
-        left = "\n".join([f"- {i}" for i in slide.get("left_items", bullets[:3])])
-        right = "\n".join([f"- {i}" for i in slide.get("right_items", bullets[3:])])
-        return f"## {title}\n\n### {slide.get('left_title', 'Pros')}\n{left}\n\n### {slide.get('right_title', 'Cons')}\n{right}"
-    elif stype == "timeline":
-        tline = "\n".join([f"**{e.get('date', '')}** - {e.get('title', '')}" for e in slide.get("events", [])])
-        return f"## {title}\n\n{tline}"
+    content = slide.get("content", "")
+    if isinstance(content, list):
+        content_text = "<br>".join([f"• {c}" for c in content[:4]])
     else:
-        blist = "\n".join([f"- {b}" for b in bullets])
-        return f"## {title}\n### {subtitle}\n\n{blist}"
-
-
-def build_presentation_markdown(slides: list, theme: str = "corporate") -> str:
-    """Build reveal.js presentation"""
-    theme_colors = {
-        "corporate": {"bg": "#1C2833", "accent": "#0A3D62"},
-        "modern": {"bg": "#1A1A2E", "accent": "#E94560"},
-        "minimal": {"bg": "#F5F5F5", "accent": "#4A90D9"},
-        "elegant": {"bg": "#1A1A1A", "accent": "#D4AF37"},
-        "nature": {"bg": "#2C3E50", "accent": "#27AE60"},
-    }
-    colors = theme_colors.get(theme, theme_colors["corporate"])
+        content_text = content[:200] if content else ""
     
-    md = f"---\ntitle: Presentation\nauthor: Slider-Web\ntheme: {theme}\n---\n\n"
-    md += f".theme-bg {{ background: {colors['bg']}; }}\n"
-    md += f".theme-accent {{ background: {colors['accent']}; }}\n\n"
+    template = slide.get("template", "content")
+    icon = SLIDE_TEMPLATES.get(template, {}).get("icon", "📝")
     
-    for i, slide in enumerate(slides):
-        md += f"## Slide {i+1}\n{build_slide_markdown(slide)}\n\n"
-    return md
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg, {tone['bg']} 0%, #1a1a2e 100%);
+        border-radius: 16px;
+        padding: 24px;
+        margin: 8px 0;
+        border: 1px solid rgba(255,255,255,0.1);
+        min-height: 120px;
+    ">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+            <span style="font-size: 24px;">{icon}</span>
+            <span style="color: {accent}; font-size: 12px; font-weight: 600; text-transform: uppercase;">
+                {SLIDE_TEMPLATES.get(template, {}).get('name', 'Content')}
+            </span>
+        </div>
+        <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px; font-weight: 600;">
+            {slide.get('title', 'Slide')}
+        </h3>
+        <div style="color: rgba(255,255,255,0.7); font-size: 14px; line-height: 1.5;">
+            {content_text}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
-def export_pptx(slides: list, title: str, theme: str = "corporate") -> bytes:
-    """Export professional PPTX"""
+def export_gamma_pptx(slides, theme):
+    """Modern PPTX export"""
     from pptx import Presentation
     from pptx.util import Inches, Pt
     from pptx.dml.color import RGBColor
-    from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+    from pptx.enum.text import PP_ALIGN
     from pptx.enum.shapes import MSO_SHAPE
     
-    theme_colors = {
-        "corporate": {"accent": RGBColor(10, 61, 98), "primary": RGBColor(28, 40, 51), "text": RGBColor(255, 255, 255)},
-        "modern": {"accent": RGBColor(233, 69, 96), "primary": RGBColor(26, 26, 46), "text": RGBColor(255, 255, 255)},
-        "minimal": {"accent": RGBColor(74, 144, 217), "primary": RGBColor(245, 245, 245), "text": RGBColor(26, 26, 26)},
-        "elegant": {"accent": RGBColor(212, 175, 55), "primary": RGBColor(26, 26, 26), "text": RGBColor(255, 255, 255)},
-        "nature": {"accent": RGBColor(39, 174, 96), "primary": RGBColor(44, 62, 80), "text": RGBColor(255, 255, 255)},
-    }
-    colors = theme_colors.get(theme, theme_colors["corporate"])
+    tone = PRESET_TONES.get(theme, PRESET_TONES["default"])
+    accent = tone["accent"]
+    
+    def hex_rgb(h):
+        h = h.lstrip("#")
+        return RGBColor(int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
+    
+    primary = hex_rgb(tone["bg"])
+    accent_color = hex_rgb(accent)
+    text_color = RGBColor(255, 255, 255) if tone != "minimal" else RGBColor(26, 26, 26)
+    subtext = RGBColor(150, 150, 150)
     
     prs = Presentation()
     prs.slide_width = Inches(13.333)
     prs.slide_height = Inches(7.5)
     
     for slide_data in slides:
-        stype = slide_data.get("type", "content")
-        content_slide = prs.slides.add_slide(prs.slide_layouts[6])
-        s = content_slide.shapes
+        tmpl = slide_data.get("template", "content")
+        content = slide_data.get("content", "")
+        if isinstance(content, list):
+            bullets = content
+        else:
+            bullets = content.split("\n") if content else []
+        
+        s = prs.slides.add_slide(prs.slide_layouts[6])
         
         bg = s.add_shape(MSO_SHAPE.RECTANGLE, Inches(0), Inches(0), Inches(13.333), Inches(7.5))
         bg.fill.solid()
-        bg.fill.fore_color.rgb = colors["primary"]
+        bg.fill.fore_color.rgb = primary
         bg.line.fill.background()
         
-        hdr = s.add_shape(MSO_SHAPE.RECTANGLE, Inches(0), Inches(0), Inches(13.333), Inches(1.0))
-        hdr.fill.solid()
-        hdr.fill.fore_color.rgb = colors["accent"]
-        hdr.line.fill.background()
+        bar = s.add_shape(MSO_SHAPE.RECTANGLE, Inches(0), Inches(0), Inches(13.333), Inches(0.08))
+        bar.fill.solid()
+        bar.fill.fore_color.rgb = accent_color
+        bar.line.fill.background()
         
-        title_text = slide_data.get("title", "Slide")
-        subtitle = slide_data.get("subtitle", "")
+        title_tb = s.add_textbox(Inches(0.8), Inches(0.4), Inches(11.5), Inches(1))
+        title_tf = title_tb.text_frame
+        title_tf.word_wrap = True
+        title_p = title_tf.paragraphs[0]
+        title_p.text = slide_data.get("title", "Slide")
+        title_p.font.size = Pt(36)
+        title_p.font.bold = True
+        title_p.font.color.rgb = text_color
         
-        tb = s.add_textbox(Inches(0.5), Inches(0.25), Inches(12), Inches(0.6))
-        tf = tb.text_frame
-        tf.word_wrap = True
-        p = tf.paragraphs[0]
-        p.text = title_text
-        p.font.size = Pt(32)
-        p.font.bold = True
-        p.font.color.rgb = colors["text"]
+        sub = slide_data.get("subtitle", "")
+        if sub:
+            sub_tb = s.add_textbox(Inches(0.8), Inches(1.3), Inches(11.5), Inches(0.6))
+            sub_tf = sub_tb.text_frame
+            sub_p = sub_tf.paragraphs[0]
+            sub_p.text = sub
+            sub_p.font.size = Pt(18)
+            sub_p.font.color.rgb = accent_color
         
-        if stype == "statistic":
-            big = slide_data.get("big_number", "")
-            label = slide_data.get("stat_label", "")
-            nb = s.add_textbox(Inches(1), Inches(2.2), Inches(11.333), Inches(2.8))
-            tf = nb.text_frame
-            tf.word_wrap = True
-            p = tf.paragraphs[0]
-            p.text = big if big else "85%"
-            p.font.size = Pt(80)
-            p.font.bold = True
-            p.alignment = PP_ALIGN.CENTER
-            p.font.color.rgb = colors["text"]
-            
-            if label:
-                sb = s.add_textbox(Inches(1), Inches(5), Inches(11.333), Inches(1))
-                tf = sb.text_frame
-                p = tf.paragraphs[0]
-                p.text = label
-                p.font.size = Pt(28)
-                p.alignment = PP_ALIGN.CENTER
-                p.font.color.rgb = colors["accent"]
-        
-        elif stype == "quote":
-            qt = slide_data.get("quote", "")
-            auth = slide_data.get("author", "")
-            qb = s.add_textbox(Inches(1.5), Inches(1.8), Inches(10), Inches(3))
-            tf = qb.text_frame
-            tf.word_wrap = True
-            p = tf.paragraphs[0]
-            p.text = f'"{qt}"' if qt else '"Quote"'
-            p.font.size = Pt(32)
-            p.font.bold = True
-            p.alignment = PP_ALIGN.CENTER
-            p.font.color.rgb = colors["text"]
-            
-            if auth:
-                ab = s.add_textbox(Inches(1.5), Inches(5), Inches(10), Inches(0.8))
-                tf = ab.text_frame
-                p = tf.paragraphs[0]
-                p.text = f"— {auth}"
-                p.font.size = Pt(22)
-                p.alignment = PP_ALIGN.CENTER
-                p.font.color.rgb = colors["accent"]
-        
-        elif stype == "comparison":
-            lt = slide_data.get("left_title", "Pros")
-            ri = slide_data.get("right_title", "Cons")
-            li = slide_data.get("left_items", slide_data.get("bullets", [])[:3])
-            ri_items = slide_data.get("right_items", slide_data.get("bullets", [])[3:])
-            
-            ltb = s.add_textbox(Inches(0.5), Inches(1.2), Inches(6), Inches(0.5))
-            tf = ltb.text_frame
-            p = tf.paragraphs[0]
-            p.text = lt
-            p.font.size = Pt(24)
-            p.font.bold = True
-            p.font.color.rgb = colors["accent"]
-            
-            rtb = s.add_textbox(Inches(7), Inches(1.2), Inches(6), Inches(0.5))
-            tf = rtb.text_frame
-            p = tf.paragraphs[0]
-            p.text = ri
-            p.font.size = Pt(24)
-            p.font.bold = True
-            p.font.color.rgb = RGBColor(255, 100, 100)
-            
-            left = s.add_textbox(Inches(0.5), Inches(1.8), Inches(6), Inches(5))
-            tf = left.text_frame
-            tf.word_wrap = True
-            for j, item in enumerate(li):
-                p = tf.paragraphs[0] if j == 0 else tf.add_paragraph()
-                p.text = item
-                p.font.size = Pt(18)
-                p.space_before = Pt(8)
-                p.font.color.rgb = colors["text"]
-            
-            right = s.add_textbox(Inches(7), Inches(1.8), Inches(6), Inches(5))
-            tf = right.text_frame
-            tf.word_wrap = True
-            for j, item in enumerate(ri_items):
-                p = tf.paragraphs[0] if j == 0 else tf.add_paragraph()
-                p.text = item
-                p.font.size = Pt(18)
-                p.space_before = Pt(8)
-                p.font.color.rgb = colors["text"]
-        
-        elif stype == "divider":
-            db = s.add_textbox(Inches(1), Inches(3), Inches(11.333), Inches(2))
-            tf = db.text_frame
-            tf.word_wrap = True
-            p = tf.paragraphs[0]
-            p.text = title_text
-            p.font.size = Pt(56)
-            p.font.bold = True
-            p.alignment = PP_ALIGN.CENTER
-            p.font.color.rgb = colors["text"]
-            
-            sub = slide_data.get("subtitle", "")
+        y_pos = 2.2
+        if tmpl == "title":
+            title_tb.top = Inches(2.5)
+            title_tb.left = Inches(1)
             if sub:
-                sb = s.add_textbox(Inches(1), Inches(5.2), Inches(11.333), Inches(1))
-                tf = sb.text_frame
-                p = tf.paragraphs[0]
-                p.text = sub
-                p.font.size = Pt(24)
-                p.alignment = PP_ALIGN.CENTER
-                p.font.color.rgb = colors["accent"]
+                sub_tb.top = Inches(4)
+            bg.fill.fore_color.rgb = accent_color
         
-        elif stype == "title":
-            ab = s.add_shape(MSO_SHAPE.RECTANGLE, Inches(0), Inches(0), Inches(0.15), Inches(7.5))
-            ab.fill.solid()
-            ab.fill.fore_color.rgb = colors["accent"]
-            ab.line.fill.background()
-            
-            tb = s.add_textbox(Inches(2), Inches(2.5), Inches(10), Inches(2))
-            tf = tb.text_frame
-            tf.word_wrap = True
-            p = tf.paragraphs[0]
-            p.text = title_text
-            p.font.size = Pt(52)
-            p.font.bold = True
-            p.alignment = PP_ALIGN.CENTER
-            p.font.color.rgb = colors["text"]
-            
-            if subtitle:
-                sb = s.add_textbox(Inches(2), Inches(4.5), Inches(10), Inches(1))
-                tf = sb.text_frame
-                p = tf.paragraphs[0]
-                p.text = subtitle
-                p.font.size = Pt(24)
-                p.alignment = PP_ALIGN.CENTER
-                p.font.color.rgb = colors["accent"]
+        elif tmpl == "stats":
+            stat_text = slide_data.get("stats", "85%")
+            stat_tb = s.add_textbox(Inches(1), Inches(2.5), Inches(11.333), Inches(2))
+            stat_tf = stat_tb.text_frame
+            stat_p = stat_tf.paragraphs[0]
+            stat_p.text = str(stat_text)
+            stat_p.font.size = Pt(80)
+            stat_p.font.bold = True
+            stat_p.alignment = PP_ALIGN.CENTER
+            stat_p.font.color.rgb = accent_color
         
-        elif stype == "timeline":
-            events = slide_data.get("events", [])
-            y = 1.3
-            for e in events[:5]:
-                date = e.get("date", "")
-                event_title = e.get("title", "")
-                
-                marker = s.add_shape(MSO_SHAPE.OVAL, Inches(1.2), Inches(y), Inches(0.25), Inches(0.25))
-                marker.fill.solid()
-                marker.fill.fore_color.rgb = colors["accent"]
-                marker.line.fill.background()
-                
-                db = s.add_textbox(Inches(1.8), Inches(y), Inches(2), Inches(0.4))
-                tf = db.text_frame
-                p = tf.paragraphs[0]
-                p.text = date
-                p.font.size = Pt(14)
-                p.font.bold = True
-                p.font.color.rgb = colors["accent"]
-                
-                tb = s.add_textbox(Inches(4), Inches(y), Inches(8), Inches(0.4))
+        elif tmpl == "quote":
+            quote_tb = s.add_textbox(Inches(1.5), Inches(2), Inches(10), Inches(3))
+            quote_tf = quote_tb.text_frame
+            quote_tf.word_wrap = True
+            quote_p = quote_tf.paragraphs[0]
+            quote_p.text = f'"{content}"' if content else '"Quote"'
+            quote_p.font.size = Pt(32)
+            quote_p.font.italic = True
+            quote_p.alignment = PP_ALIGN.CENTER
+            quote_p.font.color.rgb = text_color
+            
+            if slide_data.get("author"):
+                author_tb = s.add_textbox(Inches(1.5), Inches(5.2), Inches(10), Inches(0.5))
+                author_tf = author_tb.text_frame
+                author_p = author_tf.paragraphs[0]
+                author_p.text = f"— {slide_data['author']}"
+                author_p.font.size = Pt(18)
+                author_p.alignment = PP_ALIGN.CENTER
+                author_p.font.color.rgb = accent_color
+        
+        elif tmpl == "comparison":
+            left_items = bullets[:len(bullets)//2] if bullets else ["Pros"]
+            right_items = bullets[len(bullets)//2:] if bullets else ["Cons"]
+            
+            for i, item in enumerate(left_items):
+                tb = s.add_textbox(Inches(0.8), Inches(y_pos), Inches(6), Inches(0.5))
                 tf = tb.text_frame
                 p = tf.paragraphs[0]
-                p.text = event_title
+                p.text = f"✓ {item}"
+                p.font.size = Pt(18)
+                p.font.color.rgb = accent_color
+                y_pos += 0.5
+            
+            y_pos = 2.2
+            for i, item in enumerate(right_items):
+                tb = s.add_textbox(Inches(7), Inches(y_pos), Inches(6), Inches(0.5))
+                tf = tb.text_frame
+                p = tf.paragraphs[0]
+                p.text = f"✗ {item}"
+                p.font.size = Pt(18)
+                p.font.color.rgb = RGBColor(255, 100, 100)
+                y_pos += 0.5
+        
+        elif tmpl == "timeline":
+            for i, item in enumerate(bullets[:5]):
+                marker = s.add_shape(MSO_SHAPE.OVAL, Inches(1), Inches(y_pos), Inches(0.2), Inches(0.2))
+                marker.fill.solid()
+                marker.fill.fore_color.rgb = accent_color
+                marker.line.fill.background()
+                
+                tb = s.add_textbox(Inches(1.5), Inches(y_pos), Inches(11), Inches(0.4))
+                tf = tb.text_frame
+                p = tf.paragraphs[0]
+                p.text = str(item)
                 p.font.size = Pt(16)
-                p.font.color.rgb = colors["text"]
-                
-                if y < 5.5:
-                    line = s.add_shape(MSO_SHAPE.RECTANGLE, Inches(1.3), Inches(y + 0.3), Inches(0.1), Inches(0.4))
-                    line.fill.solid()
-                    line.fill.fore_color.rgb = colors["accent"]
-                    line.line.fill.background()
-                
-                y += 1.1
+                p.font.color.rgb = text_color
+                y_pos += 0.7
         
         else:
-            sub = slide_data.get("subtitle", "")
-            y = 1.3
-            if sub:
-                sb = s.add_textbox(Inches(0.5), Inches(1.1), Inches(12), Inches(0.4))
-                tf = sb.text_frame
+            for i, bullet in enumerate(bullets[:6]):
+                tb = s.add_textbox(Inches(0.8), Inches(y_pos), Inches(11.5), Inches(0.5))
+                tf = tb.text_frame
+                tf.word_wrap = True
                 p = tf.paragraphs[0]
-                p.text = sub
-                p.font.size = Pt(14)
-                p.font.color.rgb = RGBColor(180, 180, 180)
-                y = 1.6
-            
-            bb = s.add_textbox(Inches(0.5), Inches(y), Inches(12), Inches(5))
-            tf = bb.text_frame
-            tf.word_wrap = True
-            
-            for j, b in enumerate(slide_data.get("bullets", [])):
-                p = tf.paragraphs[0] if j == 0 else tf.add_paragraph()
-                p.text = b
-                p.font.size = Pt(20)
-                p.space_before = Pt(10)
-                p.font.color.rgb = colors["text"]
+                p.text = f"• {bullet}"
+                p.font.size = Pt(18)
+                p.font.color.rgb = text_color
+                y_pos += 0.45
     
-    buffer = BytesIO()
-    prs.save(buffer)
-    buffer.seek(0)
-    return buffer.getvalue()
+    buf = BytesIO()
+    prs.save(buf)
+    buf.seek(0)
+    return buf.getvalue()
 
 
 st.markdown("""
 <style>
-    .main .block-container {padding-top: 1rem; padding-bottom: 1rem;}
+    .main {background: #0a0a0f;}
+    .stApp {background: linear-gradient(180deg, #0a0a0f 0%, #121218 100%);}
+    
+    div[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0f0f1a 0%, #1a1a2e 100%);
+        border-right: 1px solid rgba(255,255,255,0.05);
+    }
+    
+    .stTextInput > div > div > input {
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 12px;
+        padding: 16px;
+        font-size: 16px;
+    }
+    
+    .stTextInput > div > div > input:focus {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 2px rgba(99,102,241,0.2);
+    }
+    
     div.stButton > button {
-        width: 100%;
-        border-radius: 8px;
-        padding: 0.5rem 1rem;
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        border: none;
+        border-radius: 12px;
+        padding: 16px 24px;
+        font-size: 16px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    div.stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 30px rgba(99,102,241,0.3);
+    }
+    
+    h1, h2, h3 {letter-spacing: -0.02em;}
+    
+    .gamma-hero {
+        background: linear-gradient(135deg, #1a1a2e 0%, #0f0f23 100%);
+        border-radius: 24px;
+        padding: 48px;
+        text-align: center;
+        margin-bottom: 32px;
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .gamma-hero h1 {
+        font-size: 48px;
+        background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 16px;
+    }
+    
+    .gamma-hero p {
+        color: rgba(255,255,255,0.6);
+        font-size: 18px;
+    }
+    
+    .template-badge {
+        display: inline-block;
+        background: rgba(99,102,241,0.2);
+        color: #6366f1;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
         font-weight: 600;
     }
-    .sidebar .stButton > button {width: 100%;}
     
-    .slide-card {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-        padding: 1.5rem;
-        border-radius: 12px;
-        margin-bottom: 1rem;
-        border: 1px solid rgba(255,255,255,0.1);
+    .animate-fade {
+        animation: fadeIn 0.5s ease-out;
     }
     
-    .slide-preview {
-        background: #0f0f23;
-        padding: 1rem;
-        border-radius: 8px;
-        min-height: 150px;
-        margin: 0.5rem 0;
-    }
-    
-    .preview-title {color: #4A90D9; font-size: 1.2rem; font-weight: bold;}
-    .preview-bullet {color: #aaa; font-size: 0.9rem;}
-    
-    .stTextInput > div > div {border-radius: 8px;}
-    .stTextArea > div > div {border-radius: 8px;}
-    
-    div[data-testid="stExpander"] {
-        background: rgba(255,255,255,0.03);
-        border-radius: 8px;
-        border: 1px solid rgba(255,255,255,0.1);
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
     }
 </style>
 """, unsafe_allow_html=True)
 
 
 def main():
-    st.title("📊 Slider-Web")
-    st.caption("Professional AI Presentations | Free, No Downloads")
-    
     if 'slides' not in st.session_state:
         st.session_state.slides = []
-    if 'selected_slide' not in st.session_state:
-        st.session_state.selected_slide = 0
     if 'theme' not in st.session_state:
-        st.session_state.theme = "corporate"
+        st.session_state.theme = "default"
+    if 'generating' not in st.session_state:
+        st.session_state.generating = False
     
     with st.sidebar:
-        st.markdown("### 🎛️ Create Presentation")
+        st.markdown("""
+        <div style="text-align: center; padding: 24px 0;">
+            <h2 style="margin: 0; font-size: 28px;">✨ Slider-Web</h2>
+            <p style="color: #888; margin-top: 8px;">AI Presentations</p>
+        </div>
+        """, unsafe_allow_html=True)
         
-        topic = st.text_input("Topic", placeholder="e.g., History of Artificial Intelligence", key="topic_input")
+        st.markdown("### 🎯 Create")
+        
+        topic = st.text_area(
+            "What do you want to present?", 
+            placeholder="e.g., The Future of AI in Healthcare",
+            height=80
+        )
+        
         col1, col2 = st.columns(2)
         with col1:
-            num_slides = st.selectbox("Slides", list(range(4, 13)), index=2, key="slide_count")
+            num_slides = st.selectbox("Slides", [4, 5, 6, 7, 8, 10, 12], index=2)
         with col2:
-            theme = st.selectbox("Theme", list(THEMES.keys()), format_func=lambda x: THEMES[x]["name"], key="theme_sel")
-            st.session_state.theme = theme
+            theme = st.selectbox("Theme", list(PRESET_TONES.keys()), 
+                                 format_func=lambda x: PRESET_TONES[x]["name"],
+                                 index=0)
         
-        st.markdown("---")
+        st.session_state.theme = theme
         
-        if st.button("🚀 Generate Presentation", type="primary", use_container_width=True):
+        if st.button("✨ Generate", type="primary", use_container_width=True):
             if topic:
-                with st.spinner("🤖 AI is creating your presentation..."):
-                    slides = generate_slides(topic, num_slides)
+                st.session_state.generating = True
+                with st.spinner("Creating your presentation..."):
+                    slides = generate_gamma_style(topic, num_slides, theme, topic)
                     if slides:
                         st.session_state.slides = slides
-                        st.session_state.selected_slide = 0
-                        st.session_state.theme = theme
+                        st.session_state.generating = False
                         st.rerun()
             else:
-                st.warning("Please enter a topic")
+                st.warning("Enter a topic")
         
         st.markdown("---")
         
         if st.session_state.slides:
-            st.markdown("#### 📑 All Slides")
+            st.markdown(f"### 📑 {len(st.session_state.slides)} Slides")
             
-            for i, slide in enumerate(st.session_state.slides):
-                stype = slide.get("type", "content")
-                title = slide.get("title", f"Slide {i+1}")[:30]
+            selected = st.radio("View", ["All", "Edit"], label_visibility="collapsed")
+            
+            if selected == "Edit" and st.session_state.slides:
+                edit_idx = st.selectbox("Edit", range(len(st.session_state.slides)), 
+                                     format_func=lambda x: f"Slide {x+1}")
                 
-                with st.expander(f"**{i+1}. {title}** ({stype})"):
-                    st.markdown(f"**Type:** {SLIDE_TYPES.get(stype, stype)}")
-                    if slide.get("subtitle"):
-                        st.markdown(f"**Subtitle:** {slide.get('subtitle')}")
-                    if slide.get("bullets"):
-                        for b in slide.get("bullets", [])[:3]:
-                            st.markdown(f"• {b}")
+                with st.expander("✏️ Edit Slide", expanded=True):
+                    st.session_state.slides[edit_idx]["title"] = st.text_input("Title", st.session_state.slides[edit_idx].get("title", ""))
+                    st.session_state.slides[edit_idx]["content"] = st.text_area("Content", st.session_state.slides[edit_idx].get("content", ""))
+                    st.session_state.slides[edit_idx]["subtitle"] = st.text_input("Subtitle", st.session_state.slides[edit_idx].get("subtitle", ""))
                     
-                    if st.button(f"Edit {i+1}", key=f"edit_{i}"):
-                        st.session_state.selected_slide = i
-                        st.rerun()
+                    if st.button("💾 Save"):
+                        st.success("Saved!")
             
-            st.markdown("---")
-            
-            if st.button("🗑️ New Presentation", use_container_width=True):
+            if st.button("🗑️ New Presentation"):
                 st.session_state.slides = []
-                st.session_state.selected_slide = 0
                 st.rerun()
     
-    col_main, col_prev = st.columns([1, 1])
-    
-    with col_main:
-        st.markdown("### ✏️ Edit Slide")
+    if not st.session_state.slides:
+        st.markdown("""
+        <div class="gamma-hero animate-fade">
+            <h1>✨ Create Stunning Presentations</h1>
+            <p>Describe your idea and let AI generate beautiful, professional slides - instantly.</p>
+            <p style="margin-top: 24px; color: #6366f1; font-size: 14px;">
+                🎨 Professional themes • 📱 No downloads • ⚡ Instant results
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
         
-        if st.session_state.slides:
-            idx = st.selectbox(
-                "Select Slide", 
-                range(len(st.session_state.slides)), 
-                index=st.session_state.selected_slide,
-                format_func=lambda x: f"Slide {x+1}",
-                key="slide_sel"
-            )
-            st.session_state.selected_slide = idx
-            
-            slide = st.session_state.slides[idx]
-            
-            with st.expander("📋 Layout & Content", expanded=True):
-                current_type = slide.get("type", "content")
-                type_index = list(SLIDE_TYPES.keys()).index(current_type) if current_type in SLIDE_TYPES else 1
-                
-                new_type = st.selectbox(
-                    "Slide Layout", 
-                    list(SLIDE_TYPES.keys()), 
-                    index=type_index,
-                    format_func=lambda x: SLIDE_TYPES[x],
-                    key="layout_sel"
-                )
-                slide["type"] = new_type
-                
-                slide["title"] = st.text_input("Title", slide.get("title", ""))
-                slide["subtitle"] = st.text_input("Subtitle", slide.get("subtitle", ""))
-                
-                if new_type in ("content", "bullets_image", "two_column"):
-                    bullets = "\n".join([b for b in slide.get("bullets", []) if b])
-                    slide["bullets"] = [b for b in st.text_area("Bullet Points", bullets, height=100).split("\n") if b.strip()]
-                
-                elif new_type == "quote":
-                    slide["quote"] = st.text_area("Quote", slide.get("quote", ""), height=80)
-                    slide["author"] = st.text_input("Author", slide.get("author", ""))
-                
-                elif new_type == "statistic":
-                    slide["big_number"] = st.text_input("Big Number", slide.get("big_number", ""))
-                    slide["stat_label"] = st.text_input("Label", slide.get("stat_label", ""))
-                
-                elif new_type == "comparison":
-                    slide["left_title"] = st.text_input("Left Column Title", slide.get("left_title", "Pros"))
-                    left_items = "\n".join([b for b in slide.get("left_items", []) if b])
-                    slide["left_items"] = [b for b in st.text_area("Left Items", left_items, height=80).split("\n") if b.strip()]
-                    slide["right_title"] = st.text_input("Right Column Title", slide.get("right_title", "Cons"))
-                    right_items = "\n".join([b for b in slide.get("right_items", []) if b])
-                    slide["right_items"] = [b for b in st.text_area("Right Items", right_items, height=80).split("\n") if b.strip()]
-                
-                elif new_type == "timeline":
-                    events_str = "\n".join([f"{e.get('date', '')} - {e.get('title', '')}" for e in slide.get("events", [])])
-                    events_text = st.text_area("Events (YYYY - Event)", events_str, height=100)
-                    slide["events"] = []
-                    for line in events_text.split("\n"):
-                        if line.strip() and " - " in line:
-                            parts = line.split(" - ", 1)
-                            slide["events"].append({"date": parts[0].strip(), "title": parts[1].strip()})
-                
-                slide["image_keywords"] = st.text_input("Image Keywords", slide.get("image_keywords", ""))
-                
-                if st.button("💾 Save Changes", type="primary"):
-                    st.success("✅ Changes saved!")
+        st.markdown("### Quick Examples", unsafe_allow_html=True)
+        
+        examples = [
+            "The Future of Artificial Intelligence",
+            "How Blockchain Technology Works",
+            "Climate Change Solutions 2025",
+            "Startup Pitch Deck Template",
+            "Product Launch Announcement",
+        ]
+        
+        for ex in examples:
+            if st.button(f"📝 {ex}"):
+                st.session_state.slides = generate_gamma_style(ex, 6, "default", ex)
+                if st.session_state.slides:
                     st.rerun()
-        else:
-            st.markdown("""
-            <div class="slide-card" style="text-align: center; padding: 3rem;">
-                <h3>👋 Welcome to Slider-Web!</h3>
-                <p>Enter a topic in the sidebar and click Generate to create your AI presentation.</p>
-                <p style="color: #888; margin-top: 1rem;">Free, professional presentations in seconds.</p>
-            </div>
-            """, unsafe_allow_html=True)
     
-    with col_prev:
-        st.markdown("### 👁️ Live Preview")
+    else:
+        st.markdown("## ✨ Your Presentation")
         
-        if st.session_state.slides:
-            try:
-                import reveal_slides as rs
-                md = build_presentation_markdown(st.session_state.slides, st.session_state.theme)
-                rs.slides(md, width="100%", height="450px")
-            except:
-                st.markdown("#### 📊 Slide Preview")
-                for i, slide in enumerate(st.session_state.slides[:3]):
-                    with st.expander(f"Slide {i+1}: {slide.get('title', 'Untitled')[:40]}"):
-                        st.markdown(f"**Type:** {slide.get('type', 'content')}")
-                        if slide.get("bullets"):
-                            for b in slide.get("bullets", []):
-                                st.markdown(f"• {b}")
-        else:
-            st.info("Generate slides to see preview")
-    
-    if st.session_state.slides:
-        st.markdown("---")
-        st.markdown("### 📥 Export")
+        tone = PRESET_TONES.get(st.session_state.theme, PRESET_TONES["default"])
         
-        c1, c2, c3 = st.columns(3)
+        for i, slide in enumerate(st.session_state.slides):
+            with st.expander(f"Slide {i+1}: {slide.get('title', 'Untitled')[:40]}", expanded=False):
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.markdown(f"**{slide.get('title', '')}**")
+                    st.markdown(f"_{slide.get('subtitle', '')}_" if slide.get("subtitle") else "")
+                    st.markdown(f"```\n{slide.get('content', '')}\n```")
+                with col2:
+                    template = slide.get("template", "content")
+                    st.markdown(f'<span class="template-badge">{template}</span>', unsafe_allow_html=True)
+        
+        st.markdown("### 📥 Download")
+        
+        c1, c2 = st.columns(2)
         
         with c1:
-            pptx_data = export_pptx(st.session_state.slides, "Presentation", st.session_state.theme)
+            pptx = export_gamma_pptx(st.session_state.slides, st.session_state.theme)
             st.download_button(
                 "📊 Download PPTX",
-                pptx_data,
+                pptx,
                 "presentation.pptx",
                 "application/vnd.openxmlformats-officedocument.presentationml.presentation",
                 use_container_width=True,
@@ -651,16 +538,6 @@ def main():
             )
         
         with c2:
-            md = build_presentation_markdown(st.session_state.slides, st.session_state.theme)
-            st.download_button(
-                "🌐 Download HTML",
-                md,
-                "presentation.html",
-                "text/html",
-                use_container_width=True
-            )
-        
-        with c3:
             json_data = json.dumps(st.session_state.slides, indent=2)
             st.download_button(
                 "📋 Download JSON",
