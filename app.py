@@ -225,6 +225,8 @@ def export_pptx(slides: list, title: str, theme: str = "corporate") -> bytes:
         hdr.line.fill.background()
         
         title_text = slide_data.get("title", "Slide")
+        subtitle = slide_data.get("subtitle", "")
+        
         tb = s.add_textbox(Inches(0.5), Inches(0.25), Inches(12), Inches(0.6))
         tf = tb.text_frame
         tf.word_wrap = True
